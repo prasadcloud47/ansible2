@@ -1,0 +1,10 @@
+---
+- name: play1
+  hosts: all
+  tasks:
+  - name: Execute command date
+    command: date
+
+  - name: print
+    debug:
+     msg: Rat is here

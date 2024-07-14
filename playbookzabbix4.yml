@@ -1,0 +1,152 @@
+- name: Install Zabbix 7 LTS in Rocky 9
+  hosts: web1
+  become: true
+  tasks:
+         
+   - name: Add repository
+     yum:
+       disable_gpg_check: yes
+       pkg: https://repo.zabbix.com/zabbix/7.0/rocky/9/x86_64/zabbix-release-7.0-2.el9.noarch.rpm    
+       state: present
+       
+       
+   - name: ensure a list of packages installed
+     yum:
+       name: "{{ packages }}"
+
+     vars:
+       packages:
+         - zabbix-server-pgsql
+         - zabbix-web-pgsql
+         - zabbix-apache-conf 
+         - zabbix-sql-scripts 
+         - zabbix-selinux-policy 
+         - zabbix-agent
+         - postgresql
+         - postgresql-server
+         - pip
+         
+       state: present   
+
+   - name: Init postgresql
+     command:
+       cmd: "postgresql-setup --initdb"    
+
+   - name: postgresql enabled and running
+     service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+     with_items:
+        - postgresql
+        - zabbix-server
+        - zabbix-agent
+
+   - pip:
+        name: psycopg2-binary
+
+     notify: 
+     - restart apache
+     - restart postgresql
+
+
+   - name: FirewallD rules
+     firewalld:
+        permanent: yes
+        immediate: yes
+        service: "{{ item }}"
+        state: enabled
+     with_items:
+       - http
+       - https
+       - postgresql
+       - zabbix-server
+       - zabbix-agent
+       - syslog-tls
+       - syslog
+       - ssh
+       - snmptrap
+       - snmp
+       - smtps
+       - smtp-submission
+       - smtp
+     notify: 
+       - reload firewalld
+       - restart apache
+       - restart postgresql
+
+
+   - name: change postgres network binding
+     lineinfile:
+        path: /var/lib/pgsql/data/postgresql.conf
+        regexp: '#listen_addresses'
+        line: "listen_addresses = 'localhost,127.0.0.1,10.10.10.20'"
+
+   - name: change postgres pg hba access
+     lineinfile:
+        path: /var/lib/pgsql/data/pg_hba.conf
+        regexp: 'local   all             all                                     peer'
+        line: 'local   all             all                                     trust'
+
+   - name: change postgres pg hba access
+     lineinfile:
+        path: /var/lib/pgsql/data/pg_hba.conf
+        regexp: 'host    all             all             127.0.0.1/32            ident'
+        line: 'host    all             all             127.0.0.1/32            md5'
+
+   - name: restart postgresql
+     service: name=postgresql state=restarted
+
+   - name: postgresql create user zabbix
+     community.postgresql.postgresql_user:
+        name: zabbix
+        password: zabbix
+        role_attr_flags: CREATEDB,NOSUPERUSER
+
+   - name: create zabbix db
+     community.postgresql.postgresql_db:
+        name: "zabbix"
+        state: present
+
+   - name: grant user zabbix all privilages in zabbix db
+     community.postgresql.postgresql_user:
+        name: zabbix
+        db: zabbix
+        priv: ALL
+
+   - name: Zabbix server host import initial schema and data
+     ansible.builtin.shell:
+      cmd: zcat /usr/share/zabbix-sql-scripts/postgresql/server.sql.gz | sudo -u zabbix psql zabbix
+
+   - name: Configure the database for Zabbix server
+     lineinfile:
+        path: /etc/zabbix/zabbix_server.conf
+        regexp: '#DBPassword'
+        line: 'DBPassword=zabbix'
+     notify: 
+       - restart zabbix-server
+       - restart zabbix-agent
+       - restart apache
+       - restart php-fpm
+
+
+
+  handlers:
+  - name: reload firewalld
+    service: name=firewalld state=reloaded
+
+  - name: restart apache
+    service: name=httpd state=restarted
+
+  - name: restart postgresql
+    service: name=postgresql state=restarted
+
+  - name: restart zabbix-server
+    service: name=zabbix-server state=restarted
+
+  - name: restart zabbix-agent
+    service: name=zabbix-agent state=restarted
+
+  - name: restart php-fpm
+    service: name=php-fpm state=restarted
+

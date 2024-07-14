@@ -1,0 +1,38 @@
+- name: Install postgresql in Rocky 9
+  hosts: web1
+  tasks:
+         
+   - name: Installing postgresql and ostgresql-server packages
+     yum:
+       name: 
+        - postgresql
+        - postgresql-server
+        - pip
+       state: latest     
+
+#   - name: Init postgresql
+#     command:
+#       cmd: "postgresql-setup --initdb"    
+
+   - name: postgresql enabled and running
+     service:
+        name: postgresql
+        enabled: true
+        state: started
+
+   - pip:
+        name: psycopg2-binary
+
+   - name: FirewallD rules
+     firewalld:
+        permanent: yes
+        immediate: yes
+        service: postgresql
+        state: enabled
+
+   - name: postgresql create user zabbix
+     community.postgresql.postgresql_user:
+        name: zabbix
+        password: zabbix
+        role_attr_flags: CREATEDB,NOSUPERUSER
+

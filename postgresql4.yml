@@ -1,0 +1,64 @@
+- name: Install postgresql in Rocky 9
+  hosts: web1
+  tasks:
+         
+   - name: Installing postgresql and postgresql-server and pip packages
+     yum:
+       name: 
+        - postgresql
+        - postgresql-server
+        - pip
+       state: latest     
+
+   - name: Init postgresql
+     command:
+       cmd: "postgresql-setup --initdb"    
+
+   - name: postgresql enabled and running
+     service:
+        name: postgresql
+        enabled: true
+        state: started
+
+   - pip:
+        name: psycopg2-binary
+
+   - name: FirewallD rules
+     firewalld:
+        permanent: yes
+        immediate: yes
+        service: postgresql
+        state: enabled
+
+   - name: change postgres network binding
+     lineinfile:
+        path: /var/lib/pgsql/data/postgresql.conf
+        regexp: '#listen_addresses'
+        line: "listen_addresses = 'localhost,127.0.0.1,10.10.10.20'"
+
+
+   - name: change postgres pg hba access
+     lineinfile:
+        path: /var/lib/pgsql/data/pg_hba.conf
+        regexp: 'local   all             all                                     peer'
+        line: 'local   all             all                                     trust'
+
+   - name: restart postgresql
+     service: name=postgresql state=restarted
+
+   - name: postgresql create user zabbix
+     community.postgresql.postgresql_user:
+        name: zabbix
+        password: zabbix
+        role_attr_flags: CREATEDB,NOSUPERUSER
+
+   - name: create zabbix db
+     community.postgresql.postgresql_db:
+        name: "zabbix"
+        state: present
+
+   - name: grant user zabbix all privilages in zabbix db
+     community.postgresql.postgresql_user:
+        name: zabbix
+        db: zabbix
+        priv: ALL

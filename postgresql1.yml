@@ -1,0 +1,11 @@
+- name: Install postgresql in Rocky 9
+  hosts: web1
+  tasks:
+         
+   - name: Installing postgresql and ostgresql-server packages
+     yum:
+       name: 
+        - postgresql
+        - postgresql-server
+         
+       state: latest     

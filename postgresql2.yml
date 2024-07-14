@@ -1,0 +1,20 @@
+- name: Install postgresql in Rocky 9
+  hosts: web1
+  tasks:
+         
+   - name: Installing postgresql and ostgresql-server packages
+     yum:
+       name: 
+        - postgresql
+        - postgresql-server
+       state: latest     
+
+   - name: Init postgresql
+     command:
+       cmd: "postgresql-setup --initdb"    
+
+   - name: postgresql enabled and running
+     service:
+        name: postgresql
+        enabled: true
+        state: started

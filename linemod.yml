@@ -1,0 +1,18 @@
+- name: Install postgresql in Rocky 9
+  hosts: web1
+  tasks:
+         
+    - name: change postgres network binding
+      lineinfile:
+        path: /home/ansible/postgresql.conf
+        regexp: '#listen_addresses'
+        line: "listen_addresses = 'localhost,127.0.0.1,10.10.10.20'"
+
+
+    - name: change postgres pg hba access
+      lineinfile:
+        path: /home/ansible/pg_hba.conf
+        regexp: 'local   all             all                                     peer'
+        line: 'local   all             all                                     trust'
+
+

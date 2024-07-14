@@ -1,0 +1,14 @@
+---
+
+- name: Configure important user consistently named bat
+  hosts: web1
+  tasks:
+  - name: bat exists with UID 4000
+    user: 
+      name: bat
+      uid: 4000
+      state: present
+
+
+
+...
