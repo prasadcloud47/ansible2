@@ -1,6 +1,7 @@
 - name: Install Zabbix 7 LTS in Rocky 9
   hosts: web1
   become: true
+  become_ask_pass: False
   tasks:
          
    - name: Add repository
